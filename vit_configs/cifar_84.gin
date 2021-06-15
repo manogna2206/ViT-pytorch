@@ -1,7 +1,7 @@
-get_model.img_size=84
-get_model.num_classes=47
-get_model.model_type = 'ViT-B_16'
-get_model.pretrained_ckpt='checkpoints/pretrained_ckpts/dtd-84_checkpoint.bin'
-get_model.dataset='cifar10'
+model_setup.img_size=84
+model_setup.num_classes=47
+model_setup.model_type = 'ViT-B_16'
+model_setup.pretrained_ckpt='checkpoints/pretrained_ckpts/dtd-84_checkpoint.bin'
+model_setup.dataset='cifar10'
 
 eval_metadataset.img_size=84

@@ -1,10 +1,10 @@
 import torch
+from torch import nn
 import numpy as np
-
-from models.model_utils import sigmoid, cosine_sim
 from models.losses import prototype_loss
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+sigmoid = nn.Sigmoid()
 
 def apply_selection(features_dict, lambdas, normalize=True):
     """

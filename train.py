@@ -13,10 +13,10 @@ import torch.distributed as dist
 import json
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
-# from apex import amp
-# from apex.parallel import DistributedDataParallel as DDP
+from apex import amp
+from apex.parallel import DistributedDataParallel as DDP
 
-from models.modeling import VisionTransformer, CONFIGS
+from models.model_vit import VisionTransformer, CONFIGS
 from utils.scheduler import WarmupLinearSchedule, WarmupCosineSchedule
 from utils.data_utils import get_loader
 
@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 
@@ -49,14 +50,15 @@ def save_model(args, model):
     model_to_save = model.module if hasattr(model, 'module') else model
     model_checkpoint = os.path.join(args.output_dir, "checkpoint.bin")
     torch.save(model_to_save.state_dict(), model_checkpoint)
-    model_config = {'img_size': 84, 'num_classes':47, 'model_type': "ViT-B_16", 'dataset':args.dataset,'weights_file': model_checkpoint}
+    model_config = {'img_size': 84, 'num_classes': 47, 'model_type': "ViT-B_16", 'dataset': args.dataset,
+                    'weights_file': model_checkpoint}
     with open(os.path.join(args.output_dir, "model_config.json"), "w") as outfile:
         json.dump(model_config, outfile)
     logger.info("Saved model checkpoint to [DIR: %s]", args.output_dir)
 
 
 @gin.configurable
-def get_model(args, img_size, num_classes, model_type, pretrained_ckpt, dataset, training=True):
+def model_setup(args, img_size, num_classes, model_type, pretrained_ckpt, dataset, training=True):
     config = CONFIGS[model_type]
     model = VisionTransformer(config, img_size, zero_head=True, num_classes=num_classes)
     if pretrained_ckpt:
@@ -66,24 +68,35 @@ def get_model(args, img_size, num_classes, model_type, pretrained_ckpt, dataset,
             model.load_state_dict(torch.load(pretrained_ckpt, map_location=torch.device('cpu')))
     num_params = count_parameters(model)
 
+
+    if training:
+        args.name = args.dataset + '_img' + str(img_size) + '_cls' + str(num_classes)
+        args.img_size = img_size
+        args.dataset = dataset
+        dir_name = os.path.join(args.output_dir, args.name)
+        # dir_name = os.path.join(args.output_dir,args.name+datetime.now().strftime("%Y%m%d-%H%M%S"))
+        if not os.path.exists(dir_name):
+            os.mkdir(dir_name)
+        args.output_dir = dir_name
+
+    # Setup logging
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                        datefmt='%m/%d/%Y %H:%M:%S',
+                        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN,
+                        filename=f'{args.output_dir}/training.log',
+                        filemode='w')
+
     logger.info("{}".format(config))
     logger.info("Training parameters %s", args)
     logger.info("Total Parameter: \t%2.1fM" % num_params)
     print(num_params)
 
-    if training:
-        args.name = args.dataset+'_img'+str(img_size)+'_cls'+str(num_classes)+'_'
-        args.img_size=img_size
-        args.dataset=dataset
-        dir_name = os.path.join(args.output_dir,args.name+datetime.now().strftime("%Y%m%d-%H%M%S"))
-        os.mkdir(dir_name)
-        args.output_dir = dir_name
     return args, model
 
 
 def count_parameters(model):
     params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    return params/1000000
+    return params / 1000000
 
 
 def set_seed(args):
@@ -193,15 +206,15 @@ def train(args, model):
 
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
-            if 0: #args.fp16:
+            if args.fp16:
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
             else:
                 loss.backward()
 
             if (step + 1) % args.gradient_accumulation_steps == 0:
-                losses.update(loss.item()*args.gradient_accumulation_steps)
-                if 0: #args.fp16:
+                losses.update(loss.item() * args.gradient_accumulation_steps)
+                if args.fp16:
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
                 else:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
@@ -217,7 +230,7 @@ def train(args, model):
                     writer.add_scalar("train/loss", scalar_value=losses.val, global_step=global_step)
                     writer.add_scalar("train/lr", scalar_value=scheduler.get_lr()[0], global_step=global_step)
                 if global_step % args.eval_every == 0 and args.local_rank in [-1, 0]:
-                    save_model(args, model) #remove this
+                    save_model(args, model)  # remove this
                     accuracy = valid(args, model, writer, test_loader, global_step)
                     if best_acc < accuracy:
                         save_model(args, model)
@@ -237,7 +250,7 @@ def train(args, model):
 
 
 def main(args):
-    gin.parse_config_file(args.model_config)
+    gin.parse_config_file(args.model_config, skip_unknown=True)
 
     # Setup CUDA, GPU & distributed training
     if args.local_rank == -1:
@@ -251,18 +264,14 @@ def main(args):
         args.n_gpu = 1
     args.device = device
 
-    # Setup logging
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                        datefmt='%m/%d/%Y %H:%M:%S',
-                        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN)
-    logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s" %
-                   (args.local_rank, args.device, args.n_gpu, bool(args.local_rank != -1), args.fp16))
-
     # Set seed
     set_seed(args)
 
     # Model Setup
-    args, model = get_model(args)
+    args, model = model_setup(args)
+
+    logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s" %
+                   (args.local_rank, args.device, args.n_gpu, bool(args.local_rank != -1), args.fp16))
 
     # Training
     train(args, model)
