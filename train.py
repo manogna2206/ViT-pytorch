@@ -56,7 +56,7 @@ def save_model(args, model):
 
 
 @gin.configurable
-def get_model(args, img_size, num_classes, model_type, pretrained_ckpt, dataset):
+def get_model(args, img_size, num_classes, model_type, pretrained_ckpt, dataset, training=True):
     config = CONFIGS[model_type]
     model = VisionTransformer(config, img_size, zero_head=True, num_classes=num_classes)
     if pretrained_ckpt:
@@ -64,7 +64,6 @@ def get_model(args, img_size, num_classes, model_type, pretrained_ckpt, dataset)
             model.load_from(np.load(args.pretrained_dir))
         else:
             model.load_state_dict(torch.load(pretrained_ckpt, map_location=torch.device('cpu')))
-    model.to(args.device)
     num_params = count_parameters(model)
 
     logger.info("{}".format(config))
@@ -72,12 +71,13 @@ def get_model(args, img_size, num_classes, model_type, pretrained_ckpt, dataset)
     logger.info("Total Parameter: \t%2.1fM" % num_params)
     print(num_params)
 
-    args.name = args.dataset+'_img'+str(img_size)+'_cls'+str(num_classes)+'_'
-    args.img_size=img_size
-    args.dataset=dataset
-    dir_name = os.path.join(args.output_dir,args.name+datetime.now().strftime("%Y%m%d-%H%M%S"))
-    os.mkdir(dir_name)
-    args.output_dir = dir_name
+    if training:
+        args.name = args.dataset+'_img'+str(img_size)+'_cls'+str(num_classes)+'_'
+        args.img_size=img_size
+        args.dataset=dataset
+        dir_name = os.path.join(args.output_dir,args.name+datetime.now().strftime("%Y%m%d-%H%M%S"))
+        os.mkdir(dir_name)
+        args.output_dir = dir_name
     return args, model
 
 
@@ -150,7 +150,7 @@ def train(args, model):
     """ Train the model """
     if args.local_rank in [-1, 0]:
         writer = SummaryWriter(log_dir=os.path.join(args.log_dir, args.name))
-
+    model.to(args.device)
     args.train_batch_size = args.train_batch_size // args.gradient_accumulation_steps
 
     # Prepare dataset
@@ -261,7 +261,7 @@ def main(args):
     # Set seed
     set_seed(args)
 
-    # Model & Tokenizer Setup
+    # Model Setup
     args, model = get_model(args)
 
     # Training

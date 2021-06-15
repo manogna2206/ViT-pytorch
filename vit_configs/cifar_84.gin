@@ -3,3 +3,5 @@ get_model.num_classes=47
 get_model.model_type = 'ViT-B_16'
 get_model.pretrained_ckpt='checkpoints/pretrained_ckpts/dtd-84_checkpoint.bin'
 get_model.dataset='cifar10'
+
+eval_metadataset.img_size=84
