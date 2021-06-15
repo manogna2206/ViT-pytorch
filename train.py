@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 # from apex import amp
 # from apex.parallel import DistributedDataParallel as DDP
 
-from models.modeling import VisionTransformer, CONFIGS
+from models.model_vit import VisionTransformer, CONFIGS
 from utils.scheduler import WarmupLinearSchedule, WarmupCosineSchedule
 from utils.data_utils import get_loader
 

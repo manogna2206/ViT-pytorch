@@ -6,10 +6,10 @@ import argparse
 from PIL import Image
 import matplotlib.pyplot as plt
 from torchvision import transforms
-from models.modeling import VisionTransformer, CONFIGS
+from models.model_vit import VisionTransformer, CONFIGS
 
 
-def visualize(model_dir, plot_layerwise_attentions=False):
+def visualize(model_dir, img_path, plot_layerwise_attentions=False):
 
     config_file = os.path.join(model_dir,'model_config.json')
     with open(config_file) as cfg:
@@ -27,7 +27,7 @@ def visualize(model_dir, plot_layerwise_attentions=False):
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
     ])
-    im = Image.open("data/test_imgs/dog.jpg")
+    im = Image.open(img_path)
     x = transform(im)
 
     logits, att_mat = model(x.unsqueeze(0))
@@ -57,7 +57,7 @@ def visualize(model_dir, plot_layerwise_attentions=False):
     mask = cv2.resize(mask / mask.max(), im.size)[..., np.newaxis]
     result = (mask * im).astype("uint8")
 
-    fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(16, 16))
+    fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(8, 8))
 
     ax1.set_title('Original')
     ax2.set_title('Attention Map')
@@ -84,10 +84,12 @@ def visualize(model_dir, plot_layerwise_attentions=False):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_config", type=str, default="output/cifar10_img84_ncls47",
+    parser.add_argument("--model_config", type=str, default="checkpoints/output_ckpts/cifar10_img84_cls47",
+                        help="Where to search for pretrained ViT models.")
+    parser.add_argument("--test_img", type=str, default="data/test_imgs/dog.jpg",
                         help="Where to search for pretrained ViT models.")
     args = parser.parse_args()
-    visualize(args.model_config, plot_layerwise_attentions=True)
+    visualize(args.model_config, args.test_img, plot_layerwise_attentions=False)
 
     return
 

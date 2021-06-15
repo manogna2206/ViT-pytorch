@@ -19,11 +19,10 @@ from scipy import ndimage
 import gin
 import models.configs as configs
 
-from .modeling_resnet import ResNetV2
+from .resnetv2 import ResNetV2
 
 
 logger = logging.getLogger(__name__)
-
 
 ATTENTION_Q = "MultiHeadDotProductAttention_1/query"
 ATTENTION_K = "MultiHeadDotProductAttention_1/key"
