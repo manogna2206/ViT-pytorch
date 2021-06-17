@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 import timm
 # from apex import amp
 # from apex.parallel import DistributedDataParallel as DDP
-
+from torch.nn import CrossEntropyLoss
 from models.model_vit import VisionTransformer, CONFIGS
 from utils.scheduler import WarmupLinearSchedule, WarmupCosineSchedule
 from utils.data_utils import get_loader
@@ -60,19 +60,17 @@ def save_model(args, model):
 
 @gin.configurable
 def model_setup(args, img_size, num_classes, model_type, pretrained_ckpt, dataset, training=True):
-    config = CONFIGS[model_type]
-    model = VisionTransformer(config, img_size, zero_head=True, num_classes=num_classes)
-
-    if pretrained_ckpt:
-        if 'npz' in pretrained_ckpt:
-            model.load_from(np.load(args.pretrained_dir))
-        else:
-            model.load_state_dict(torch.load(pretrained_ckpt, map_location=torch.device('cpu')))
-    num_params = count_parameters(model)
-
-
+    # config = CONFIGS[model_type]
+    # model = VisionTransformer(config, img_size, zero_head=True, num_classes=num_classes)
+    #
+    # if pretrained_ckpt:
+    #     if 'npz' in pretrained_ckpt:
+    #         model.load_from(np.load(args.pretrained_dir))
+    #     else:
+    #         model.load_state_dict(torch.load(pretrained_ckpt, map_location=torch.device('cpu')))
+    # num_params = count_parameters(model)
     if training:
-        args.name = args.dataset + '_img' + str(img_size) + '_cls' + str(num_classes)
+        args.name = args.dataset + '_img' + str(img_size) #+ '_cls' + str(num_classes)
         args.img_size = img_size
         args.dataset = dataset
         dir_name = os.path.join(args.output_dir, args.name)
@@ -81,20 +79,7 @@ def model_setup(args, img_size, num_classes, model_type, pretrained_ckpt, datase
             os.mkdir(dir_name)
         args.output_dir = dir_name
         args.num_classes = num_classes
-
-    # Setup logging
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-                        datefmt='%m/%d/%Y %H:%M:%S',
-                        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN,
-                        filename=f'{args.output_dir}/training.log',
-                        filemode='w')
-
-    logger.info("{}".format(config))
-    logger.info("Training parameters %s", args)
-    logger.info("Total Parameter: \t%2.1fM" % num_params)
-    print(num_params)
-
-    return args, model
+    return args
 
 
 def count_parameters(model):
@@ -130,7 +115,7 @@ def valid(args, model, writer, test_loader, global_step):
         batch = tuple(t.to(args.device) for t in batch)
         x, y = batch
         with torch.no_grad():
-            logits = model(x)[0]
+            logits = model(x)
 
             eval_loss = loss_fct(logits, y)
             eval_losses.update(eval_loss.item())
@@ -215,7 +200,10 @@ def train(args, model):
         for step, batch in enumerate(epoch_iterator):
             batch = tuple(t.to(args.device) for t in batch)
             x, y = batch
-            loss = model(x, y)
+            logits = model(x)
+
+            loss_fct = CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, args.num_classes), y.view(-1))
 
             if args.gradient_accumulation_steps > 1:
                 loss = loss / args.gradient_accumulation_steps
@@ -281,7 +269,18 @@ def main(args):
     set_seed(args)
 
     # Model Setup
-    args, model = model_setup(args)
+    args = model_setup(args)
+    model = timm.create_model('vit_base_patch16_224', pretrained=True, num_classes=args.num_classes, img_size=args.img_size)
+
+    # Setup logging
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
+                        datefmt='%m/%d/%Y %H:%M:%S',
+                        level=logging.INFO if args.local_rank in [-1, 0] else logging.WARN,
+                        filename=f'{args.output_dir}/training.log',
+                        filemode='w')
+
+    logger.info("Training parameters %s", args)
+    logger.info("Total Parameter: \t%2.1fM" % count_parameters(model))
 
     logger.warning("Process rank: %s, device: %s, n_gpu: %s, distributed training: %s, 16-bits training: %s" %
                    (args.local_rank, args.device, args.n_gpu, bool(args.local_rank != -1), args.fp16))

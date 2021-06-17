@@ -2,7 +2,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 # Required parameters
-parser.add_argument("--model_config", type=str, default="vit_configs/cifar_84.gin",
+parser.add_argument("--model_config", type=str, default="vit_configs/cifar_224.gin",
                     help="Where to search for pretrained ViT models.")
 
 parser.add_argument("--name", required=False,

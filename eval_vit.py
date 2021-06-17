@@ -1,41 +1,36 @@
-import torch
-import gin
-import numpy as np
-from tqdm import tqdm
-from models.losses import prototype_loss
-from cdfsl_dataset.meta_dataset_reader import MetaDatasetEpisodeReader
-from train import get_model
 import argparse
-from tabulate import tabulate
+import numpy as np
 import tensorflow as tf
+import torch
+from tabulate import tabulate
+from tqdm import tqdm
+from cdfsl_dataset.meta_dataset_reader import MetaDatasetEpisodeReader
+from models.losses import prototype_loss
+from utils.model_utils import get_model, get_base_model
 
 
+def eval_metadataset(args):
+    img_size = args.img_size
+    trainset = args.trainset
+    testsets = args.testsets
+    if trainset == 'imagenet':
+        model = get_base_model(img_size=img_size, from_timm=True)
+    else:
+        model = get_model(img_size, trainset, from_timm=True)
 
-
-@gin.configurable()
-def eval_metadataset(args, img_size):
-    args, model = get_model(args, training=False)
     config_file = f'cdfsl_dataset/configs/meta_dataset_{img_size}x{img_size}.gin'
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
-    extractors=dict()
-    extractors['imagenet'] = model
-    extractors['cifar'] = model
-
-    trainsets = "omniglot".split(' ')
-    valsets = "omniglot".split(' ')
-    testsets = "mnist".split(' ')
-    print('train domains:', trainsets)
-    print('test domains:', testsets)
+    testsets = testsets.split(' ')
+    print('Evaluating on test domains:', testsets)
 
     config = tf.compat.v1.ConfigProto()
     config.gpu_options.allow_growth = True
     tf.compat.v1.disable_eager_execution()
-    val_loader = MetaDatasetEpisodeReader('val', trainsets, valsets, testsets, config_file=config_file)
-    test_loader = MetaDatasetEpisodeReader('test', trainsets, valsets, testsets, config_file=config_file)
+    test_loader = MetaDatasetEpisodeReader('test', testsets, testsets, testsets, config_file=config_file)
 
-    N_TASKS = 10
+    N_TASKS = args.num_tasks
     accs_names = ['ViT']
     var_accs = dict()
     with tf.compat.v1.Session(config=config) as session:
@@ -77,10 +72,15 @@ def eval_metadataset(args, img_size):
 def main():
     parser = argparse.ArgumentParser()
     # Required parameters
-    parser.add_argument("--model_config", type=str, default="vit_configs/cifar_84.gin",
+    parser.add_argument("--img_size", type=int, default=224,
+                        help="Where to search for pretrained ViT models.")
+    parser.add_argument("--trainset", type=str, default="imagenet",
+                        help="Use base ViT model")
+    parser.add_argument("--testsets", type=str, default="mnist",
+                        help="Evaluation domains")
+    parser.add_argument("--num_tasks", type=int, default=100,
                         help="Where to search for pretrained ViT models.")
     args = parser.parse_args()
-    gin.parse_config_file(args.model_config)
     eval_metadataset(args)
 
 

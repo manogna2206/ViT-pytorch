@@ -12,3 +12,4 @@ setuptools~=54.1.2
 six~=1.15.0
 pillow~=8.1.2
 matplotlib~=3.3.4
+timm~=0.4.11

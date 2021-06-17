@@ -45,20 +45,20 @@ def get_loader(args):
                                     transform=transform_test) if args.local_rank in [-1, 0] else None
 
     elif args.dataset == "dtd":
-        trainset = datasets.ImageFolder('./data/dtd', transform=transform_train)
-        testset = datasets.ImageFolder('./data/dtd', transform=transform_test)
+        trainset = datasets.ImageFolder('./data/dtd/train', transform=transform_train)
+        testset = datasets.ImageFolder('./data/dtd/train', transform=transform_test)
 
     elif args.dataset == "omniglot":
         transform_train = transforms.Compose([
             transforms.RandomResizedCrop((args.img_size, args.img_size), scale=(0.05, 1.0)),
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(3, 1, 1) ),
+            transforms.Lambda(lambda x: x.repeat(3, 1, 1)),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ])
         transform_test = transforms.Compose([
             transforms.Resize((args.img_size, args.img_size)),
             transforms.ToTensor(),
-            transforms.Lambda(lambda x: x.repeat(3, 1, 1) ),
+            transforms.Lambda(lambda x: x.repeat(3, 1, 1)),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
         ])
         trainset = datasets.Omniglot(root="./data",

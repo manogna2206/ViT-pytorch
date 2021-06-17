@@ -84,7 +84,7 @@ def visualize(model_dir, img_path, plot_layerwise_attentions=False):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_config", type=str, default="checkpoints/output_ckpts/cifar10_img84_cls47",
+    parser.add_argument("--model_config", type=str, default="checkpoints/output_ckpts/cifar10_img84",
                         help="Where to search for pretrained ViT models.")
     parser.add_argument("--test_img", type=str, default="data/test_imgs/dog.jpg",
                         help="Where to search for pretrained ViT models.")

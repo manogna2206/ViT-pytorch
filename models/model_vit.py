@@ -6,21 +6,17 @@ from __future__ import print_function
 import copy
 import logging
 import math
-
 from os.path import join as pjoin
 
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
-
+from scipy import ndimage
 from torch.nn import CrossEntropyLoss, Dropout, Softmax, Linear, Conv2d, LayerNorm
 from torch.nn.modules.utils import _pair
-from scipy import ndimage
-import gin
+
 import models.configs as configs
-
 from .resnetv2 import ResNetV2
-
 
 logger = logging.getLogger(__name__)
 
@@ -257,6 +253,7 @@ class Transformer(nn.Module):
         encoded, attn_weights = self.encoder(embedding_output)
         return encoded, attn_weights
 
+
 class VisionTransformer(nn.Module):
     def __init__(self, config, img_size=224, num_classes=21843, zero_head=False, vis=False):
         super(VisionTransformer, self).__init__()
@@ -267,9 +264,13 @@ class VisionTransformer(nn.Module):
         self.transformer = Transformer(config, img_size, vis)
         self.head = Linear(config.hidden_size, num_classes)
 
-    def forward_features(self, x, labels=None):
+    def forward_features(self, x, mean=True):
         x, _ = self.transformer(x)
-        return x[:,0]
+        if not mean:
+            return x[:,0]
+        else:
+            x = torch.mean(x[:, 0:], dim=1)
+            return x
 
     def forward(self, x, labels=None):
         x, attn_weights = self.transformer(x)
