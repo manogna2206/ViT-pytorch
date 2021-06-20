@@ -72,13 +72,13 @@ def eval_metadataset(args):
 def main():
     parser = argparse.ArgumentParser()
     # Required parameters
-    parser.add_argument("--img_size", type=int, default=224,
+    parser.add_argument("--img_size", type=int, default=84,
                         help="Where to search for pretrained ViT models.")
     parser.add_argument("--trainset", type=str, default="imagenet",
                         help="Use base ViT model")
     parser.add_argument("--testsets", type=str, default="mnist",
                         help="Evaluation domains")
-    parser.add_argument("--num_tasks", type=int, default=100,
+    parser.add_argument("--num_tasks", type=int, default=10,
                         help="Where to search for pretrained ViT models.")
     args = parser.parse_args()
     eval_metadataset(args)

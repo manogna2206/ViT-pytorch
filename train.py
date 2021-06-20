@@ -51,7 +51,7 @@ def save_model(args, model):
     model_to_save = model.module if hasattr(model, 'module') else model
     model_checkpoint = os.path.join(args.output_dir, "checkpoint.bin")
     torch.save(model_to_save.state_dict(), model_checkpoint)
-    model_config = {'img_size': 84, 'num_classes': 47, 'model_type': "ViT-B_16", 'dataset': args.dataset,
+    model_config = {'img_size': args.img_size, 'num_classes': args.num_classes, 'model_type': "ViT-B_16", 'dataset': args.dataset,
                     'weights_file': model_checkpoint}
     with open(os.path.join(args.output_dir, "model_config.json"), "w") as outfile:
         json.dump(model_config, outfile)

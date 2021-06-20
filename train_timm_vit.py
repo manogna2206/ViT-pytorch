@@ -51,7 +51,7 @@ def save_model(args, model):
     model_to_save = model.module if hasattr(model, 'module') else model
     model_checkpoint = os.path.join(args.output_dir, "checkpoint.bin")
     torch.save(model_to_save.state_dict(), model_checkpoint)
-    model_config = {'img_size': 84, 'num_classes': 47, 'model_type': "ViT-B_16", 'dataset': args.dataset,
+    model_config = {'img_size': args.img_size, 'num_classes': args.num_classes, 'model_type': "ViT-B_16", 'dataset': args.dataset,
                     'weights_file': model_checkpoint}
     with open(os.path.join(args.output_dir, "model_config.json"), "w") as outfile:
         json.dump(model_config, outfile)
@@ -60,19 +60,10 @@ def save_model(args, model):
 
 @gin.configurable
 def model_setup(args, img_size, num_classes, model_type, pretrained_ckpt, dataset, training=True):
-    # config = CONFIGS[model_type]
-    # model = VisionTransformer(config, img_size, zero_head=True, num_classes=num_classes)
-    #
-    # if pretrained_ckpt:
-    #     if 'npz' in pretrained_ckpt:
-    #         model.load_from(np.load(args.pretrained_dir))
-    #     else:
-    #         model.load_state_dict(torch.load(pretrained_ckpt, map_location=torch.device('cpu')))
-    # num_params = count_parameters(model)
     if training:
-        args.name = args.dataset + '_img' + str(img_size) #+ '_cls' + str(num_classes)
         args.img_size = img_size
         args.dataset = dataset
+        args.name = 'timm_'+args.dataset + '_img' + str(img_size) #+ '_cls' + str(num_classes)
         dir_name = os.path.join(args.output_dir, args.name)
         # dir_name = os.path.join(args.output_dir,args.name+datetime.now().strftime("%Y%m%d-%H%M%S"))
         if not os.path.exists(dir_name):
@@ -219,8 +210,8 @@ def train(args, model):
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
                 else:
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-                scheduler.step()
                 optimizer.step()
+                scheduler.step()
                 optimizer.zero_grad()
                 global_step += 1
 

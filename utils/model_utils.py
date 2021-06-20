@@ -19,17 +19,22 @@ def get_base_model(img_size=224, model_type='ViT-B_16', pretrained_ckpt='checkpo
 
 
 def get_model(img_size=224, dataset='dtd', from_timm=False):
-    model_dir = os.path.join(CHECKPOINT_DIR, f'{dataset}_img{img_size}')
-    config_file = os.path.join(model_dir, 'model_config.json')
-    with open(config_file) as cfg:
-        config = json.load(cfg)
-    print('Getting model:')
-    print(config)
-
     if from_timm:
+        model_dir = os.path.join(CHECKPOINT_DIR, f'timm_{dataset}_img{img_size}')
+        config_file = os.path.join(model_dir, 'model_config.json')
+        with open(config_file) as cfg:
+            config = json.load(cfg)
+        print('Getting model:')
+        print(config)
         print(f'Loading timm model trained on {dataset} on image size {img_size}')
         model = timm.create_model('vit_base_patch16_224', pretrained=False, num_classes=10, img_size=img_size)
     else:
+        model_dir = os.path.join(CHECKPOINT_DIR, f'{dataset}_img{img_size}')
+        config_file = os.path.join(model_dir, 'model_config.json')
+        with open(config_file) as cfg:
+            config = json.load(cfg)
+        print('Getting model:')
+        print(config)
         model = VisionTransformer(CONFIGS[config['model_type']], num_classes=config['num_classes'],
                                   img_size=config['img_size'], zero_head=True)
     checkpoint_file = os.path.join(model_dir, 'checkpoint.bin')
